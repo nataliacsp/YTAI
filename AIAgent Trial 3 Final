@@ -1,0 +1,77 @@
+!pip install -q crewai
+!pip install -q 'crewai[tools]'
+!pip install python-dotenv
+%load_ext dotenv
+%dotenv
+%reload_ext dotenv
+!export OPENAI_API_KEY="sk-khalifa-JNcD9ox8T1C2D0gnH1zpT3BlbkFJRjwFs2Ha6dWAR9yRLTJi"
+import os
+from crewai import Agent, Task, Crew, Process
+from crewai_tools import SerperDevTool
+search_tool = SerperDevTool
+from langchain_openai import ChatOpenAI
+my_text = [
+    "From ancient ciphers to digital keys, I weave patterns of security, where only the intended eyes can see.",
+    "Like a dance with logic, steps in a line, my pattern dictates the final design.",
+    "Logic's blueprint, code's design, my instructions make machines align."
+
+# Define your agents with roles and goals
+hunter = Agent(
+    role="Treasure Hunter",
+    goal="Find the hidden words from 'my_text'",
+    backstory="You work at Houston Community college for an international group. Your expertise lies on finding hidden word within clues to find the ultimate treasure. Happy Hunting!",
+    verbose=True,
+    allow_delegation=True,
+    tools=[SerperDevTool()],  # Create an instance of the tool and add it to the list
+    llm=ChatOpenAI(
+        model_name="text-embedding-3-small",
+        temperature=0.2,
+        openai_api_key="sk-khalifa-JNcD9ox8T1C2D0gnH1zpT3BlbkFJRjwFs2Ha6dWAR9yRLTJi",
+    ),
+)
+
+# Define your agents with roles and goals
+presenter = Agent(
+    role="Presenter of the Treasure",
+    goal="Retrieve the hints",
+    backstory="You work at Houston Community college for an international group. Your expertise lies on finding hidden word within clues to find the ultimate treasure. Happy Hunting!",
+    verbose=True,
+    allow_delegation=True,
+    llm=ChatOpenAI(
+        model_name="gpt-4-turbo-preview",
+        temperature=0.3,
+        openai_api_key="sk-khalifa-JNcD9ox8T1C2D0gnH1zpT3BlbkFJRjwFs2Ha6dWAR9yRLTJi",
+    ),
+)
+
+
+#Create tasks for your agents
+task1= Task(
+    description = "from the text in 'my_text' find the hidden words",
+expected_output = "Full retrieval of the three hidden clues in bullet points",
+agent =hunter
+)
+
+
+#Create tasks for your agents 
+task2 = Task(
+    description= "Present the clues from hunter",
+    expected_output = "We have found the treasure, the hidden clues from our hunt were",
+    agent = presenter
+)
+
+
+
+#Initiate your crew with a sequential process
+crew = Crew(
+    agents = [hunter, presenter],
+    tasks = [task1, task2],
+    verbose = 1,
+
+)
+
+result=crew.kickoff()
+
+print("##########")
+print(result)
+
