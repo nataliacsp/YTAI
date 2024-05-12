@@ -1,0 +1,207 @@
+# Install libraries if needed (uncomment as necessary)
+# !pip install nltk pandas sklearn gensim spacy transformers
+
+# Import libraries
+import pandas as pd
+import numpy as np
+import nltk
+import re  # For regular expressions
+import gensim
+import spacy
+
+from nltk.corpus import stopwords
+from nltk.corpus import wordnet
+from nltk.stem import WordNetLemmatizer
+from nltk.tokenize import word_tokenize
+
+from sklearn.datasets import fetch_20newsgroups
+from sklearn.feature_extraction.text import TfidfVectorizer
+
+nltk.download('stopwords')
+nltk.download('averaged_perceptron_tagger')
+nltk.download('wordnet')
+nltk.download('punkt')
+
+# Optional advanced exploration with Transformers
+from transformers import pipeline
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.pipeline import make_pipeline
+
+# Load the 20 newsgroups dataset
+newsgroups_train = fetch_20newsgroups(subset='train')
+
+# Define the text to classify
+text = "I shield secrets with mathematical might, transforming messages into hidden light"
+
+# Create a pipeline that combines TF-IDF vectorization and Multinomial Naive Bayes classifier
+pipe = make_pipeline(TfidfVectorizer(), MultinomialNB())
+
+# Train the model on the training data
+pipe.fit(newsgroups_train.data, newsgroups_train.target)
+
+# Predict the category of the text
+predicted_category = pipe.predict([text])[0]
+
+# Get the target names (category names)
+target_names = newsgroups_train.target_names
+
+# Print the predicted category
+print("Predicted Category:", target_names[predicted_category])
+def get_wordnet_pos(word):
+    """Map POS tag to first character lemmatize() accepts."""
+    tag = nltk.pos_tag([word])[0][1][0].upper()
+    tag_dict = {"J": wordnet.ADJ,
+                "N": wordnet.NOUN,
+                "V": wordnet.VERB,
+                "R": wordnet.ADV}
+    return tag_dict.get(tag, wordnet.NOUN)
+
+def clean_text(text):
+    """Normalize, remove possessives, lemmatize, and remove stopwords."""
+    lemmatizer = WordNetLemmatizer()
+    stop_words = set(stopwords.words('english'))
+    text = text.lower()
+    text = re.sub(r"'s\b", "", text)
+    text = re.sub(r"[^\w\s]", '', text)
+    words = word_tokenize(text)
+    lemmatized_words = [lemmatizer.lemmatize(w, get_wordnet_pos(w)) for w in words if w not in stop_words]
+    return lemmatized_words
+
+def extract_keywords(text_data):
+    """Extract keywords using TF-IDF from preprocessed text."""
+    stop_words = stopwords.words('english')
+    vectorizer = TfidfVectorizer(stop_words=stop_words)
+    text_data = [' '.join(clean_text(doc)) for doc in text_data]
+    vectors = vectorizer.fit_transform(text_data)
+    feature_names = vectorizer.get_feature_names_out()
+    dense = vectors.todense()
+    denselist = dense.tolist()
+    df = pd.DataFrame(denselist, columns=feature_names)
+    return df
+
+# Clues
+my_text = [
+    "From ancient ciphers to digital keys, I weave patterns of security, where only the intended eyes can see.",
+    "Like a dance with logic, steps in a line, my pattern dictates the final design.",
+    "Logic's blueprint, code's design, my instructions make machines align."
+]
+
+keyword_df = extract_keywords(my_text)
+print(keyword_df)
+from gensim.models import Word2Vec
+sentences = [clean_text(text) for text in my_text]
+model = Word2Vec(sentences, vector_size=100, window=5, min_count=1, workers=4)
+
+# Displaying vocabulary
+print("Vocabulary in Model:", model.wv.index_to_key)
+
+# Calculate and display similarities
+for text in my_text:
+    preprocessed_text = clean_text(text)
+    text_vector = np.mean([model.wv[word] for word in preprocessed_text if word in model.wv], axis=0)
+
+    # Dictionary to store keyword and its similarity
+    similarity_dict = {}
+    for keyword in keyword_df.columns.tolist():
+        if keyword in model.wv:
+            keyword_vector = model.wv[keyword]
+            similarity = np.dot(keyword_vector, text_vector) / (np.linalg.norm(keyword_vector) * np.linalg.norm(text_vector))
+            similarity_dict[keyword] = similarity
+        else:
+            similarity_dict[keyword] = float('-inf')  # Treat words not in vocab as lowest similarity
+
+    # Sorting the dictionary by similarity in descending order
+    sorted_similarities = sorted(similarity_dict.items(), key=lambda item: item[1], reverse=True)
+
+    # Printing the sorted similarities
+    print(f"\nComparing to text: {' '.join(preprocessed_text)}")
+    for keyword, sim_value in sorted_similarities:
+        if sim_value == float('-inf'):
+            print(f"Keyword '{keyword}' not in vocabulary.")
+        else:
+            print(f"Similarity with '{keyword}': {sim_value:.4f}")
+
+
+!pip install transformers
+
+# Explore Transformers (optional challenge)
+# This section requires installing the transformers library
+
+# After installing transformers (see above), uncomment the following:
+
+# Example using a pre-trained model for question answering
+answerer = pipeline("question-answering", model="deepset/roberta-base-squad2")
+
+# Example using a pre-trained model for text classification
+#classifier = pipeline("text-classification", model="distilbert/distilbert-base-uncased-finetuned-sst-2-english")
+
+#result = classifier("Like a dance with logic, steps in a line, my pattern dictates the final design.")
+#print(result)
+
+your_text_data = "Logic's blueprint, code's design, my instructions make machines align."
+
+# Imagine your question relates to the content of your texts
+question = "Is the text referring to what kind of design?"
+answer = answerer({'question': question, 'context': your_text_data}) #Replace_text_data with the actual text data you will use for you exploration.
+print(question)
+print(answer)
+
+# Experiment with other Transformers pipelines like text classification,
+# summarization, or sentiment analysis based on your exploration goals.
+
+# Regular expression examples
+'''
+text = "There is a hidden code: AB12XY94"
+pattern = r"\b[A-Z]{2}\d{2}[A-Z]{2}\d{2}\b"  # Pattern for a simple code-like structure
+matches = re.findall(pattern, text)
+if matches:
+    print("Found potential codes:", matches)
+
+    import re
+'''
+def find_patterns(text_data):
+    # Updated pattern for typical US license plates (e.g., "XYZ1234")
+    license_plate_pattern = r"\b[A-Z]{3}\d{4}\b"
+    # Standard email regex pattern
+    email_pattern = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"
+    # Pattern for typical US phone numbers (e.g., "555-333-8888")
+    phone_pattern = r"\b\d{3}-\d{3}-\d{4}\b"
+
+    license_plates = re.findall(license_plate_pattern, text_data)
+    emails = re.findall(email_pattern, text_data)
+    phone_numbers = re.findall(phone_pattern, text_data)
+
+    # Reporting findings
+    if license_plates:
+        print("Found potential license plates:", license_plates)
+    if emails:
+        print("Found potential emails:", emails)
+    if phone_numbers:
+        print("Found phone numbers:", phone_numbers)
+    if not (license_plates or emails or phone_numbers):
+        print("No potential patterns found.")
+
+# Example usage (students would apply this to their texts)
+my_text = "The license plate XYZ1234 is expired, you can renew it contacting texasdps@gov.us or call 555-333-8888."
+find_patterns(my_text)
+
+
+# Create the environment (the treasure hunt)
+env = 
+
+# Initialize Q-table with zeros
+Q_table = np.zeros([env.observation_space.n, env.action_space.n])
+
+
+# Hyperparameters  control how the agent learns
+
+#How much to update the Q-table in each step
+learning_rate = 0.8
+#How much the agent values future wins compared to immediate wins.
+discount_factor = 0.95
+# handle exploration vs. exploitation (we'll get into this shortly).
+num_episodes = 10000
+# Exploration vs. Exploitation - Epsilon Greedy Strategy
+epsilon = 1.0  # Start with pure exploration
+epsilon_decay = 0.995  # Decay rate per episode
+epsilon_min = 0.01  # Minimum exploration probability
